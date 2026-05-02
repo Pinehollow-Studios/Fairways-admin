@@ -122,3 +122,11 @@ canonical write-up lives on disk.
   group with sidebar shell; one live route (`/lists`) and five "Soon"
   placeholders; magic-link login; `requireAdmin` stub pending the
   `admins` table migration in `Fairways-ios`.
+- **2026-05-02** — Auth gate goes live: `requireAdmin()` swapped from
+  any-authenticated-user stub to a `supabase.rpc('admin_role')` call
+  backed by `Fairways-ios` migration `20260502140000_admins.sql`. Three
+  roles (super_admin / moderator / editor); fail-closed redirect to
+  `/unauthorized` on null/error. Returned `AdminRole` rides up to the
+  TopBar so future role-gated UI can branch on it. Bootstrap procedure
+  documented in `Fairways-ios/docs/admin-runbook.md` → "Setup — admin
+  roster".
