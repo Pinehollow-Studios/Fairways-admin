@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/admin/ModeToggle";
 import { signOut } from "@/app/(dashboard)/actions";
 
 type Props = {
@@ -15,6 +16,7 @@ export function TopBar({ email }: Props) {
         {email && (
           <span className="text-sm text-muted-foreground">{email}</span>
         )}
+        <ModeToggle />
         <form action={signOut}>
           <Button type="submit" variant="ghost" size="sm">
             Sign out
