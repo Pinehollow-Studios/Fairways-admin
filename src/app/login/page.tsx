@@ -11,21 +11,19 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { sendMagicLink, type LoginState } from "./actions";
+import { signIn, type LoginState } from "./actions";
 
 const initialState: LoginState = { status: "idle" };
 
 export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(sendMagicLink, initialState);
+  const [state, formAction, pending] = useActionState(signIn, initialState);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-muted/30 p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Fairways Admin</CardTitle>
-          <CardDescription>
-            Sign in with your admin email. We&rsquo;ll send a one-time link.
-          </CardDescription>
+          <CardDescription>Sign in with your admin email and password.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-4">
@@ -40,19 +38,21 @@ export default function LoginPage() {
                 placeholder="you@pinehollow.studio"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? "Sending…" : "Send sign-in link"}
+              {pending ? "Signing in…" : "Sign in"}
             </Button>
-            {state.status !== "idle" && state.message && (
-              <p
-                className={
-                  state.status === "error"
-                    ? "text-sm text-destructive"
-                    : "text-sm text-muted-foreground"
-                }
-              >
-                {state.message}
-              </p>
+            {state.status === "error" && state.message && (
+              <p className="text-sm text-destructive">{state.message}</p>
             )}
           </form>
         </CardContent>
