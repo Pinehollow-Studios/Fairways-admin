@@ -1,0 +1,140 @@
+import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/admin/SectionHeader";
+import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/server";
+import { listCoverURL } from "@/lib/storage";
+import { CuratedEditor } from "./CuratedEditor";
+import {
+  STATUS_LABELS,
+  STATUS_VARIANT,
+  statusFor,
+  type CuratedCourseRow,
+  type CuratedListRow,
+  type CourseCatalogRow,
+} from "../types";
+
+export const dynamic = "force-dynamic";
+
+type RouteParams = Promise<{ id: string }>;
+
+export default async function CuratedListEditorPage(props: { params: RouteParams }) {
+  const { id } = await props.params;
+  const supabase = await createClient();
+
+  // Three queries in parallel:
+  //  1. The list row itself (full payload)
+  //  2. The course rows attached to it (joined to courses + clubs + counties for display)
+  //  3. The full course catalog for the picker (id + names only — small payload)
+  const [listResult, coursesResult, catalogResult] = await Promise.all([
+    supabase
+      .from("curated_lists")
+      .select(
+        "id,name,slug,description,bio,tags,region,tier,display_priority,is_ordered,cover_storage_key,published_at,unpublished_at,is_archived,created_at,updated_at",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("curated_list_courses")
+      .select(
+        "course_id,position,editor_note,courses(name,club_id,county_id,clubs(name),counties(name))",
+      )
+      .eq("curated_list_id", id)
+      .order("position", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("courses")
+      .select("id,name,club_id,county_id,clubs(name),counties(name)")
+      .order("name", { ascending: true })
+      .limit(2000),
+  ]);
+
+  if (listResult.error) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          Failed to load list: {listResult.error.message}
+        </div>
+      </div>
+    );
+  }
+  if (!listResult.data) notFound();
+
+  // Supabase JS returns joined relations as arrays even when the
+  // FK is one-to-one — that's the typed default and unwrapping
+  // here is the canonical pattern. Flatten into the display
+  // shape the editor expects; missing relations stay null.
+  const courses: CuratedCourseRow[] = (coursesResult.data ?? []).map((row) => {
+    const c = unwrapRow<CourseRowFromJoin>(row.courses);
+    return {
+      course_id: row.course_id,
+      course_name: c?.name ?? "Unknown course",
+      club_name: unwrapRow<{ name: string }>(c?.clubs)?.name ?? null,
+      county_name: unwrapRow<{ name: string }>(c?.counties)?.name ?? null,
+      position: row.position,
+      editor_note: row.editor_note,
+    };
+  });
+
+  const catalog: CourseCatalogRow[] = (catalogResult.data ?? []).map((row) => {
+    return {
+      course_id: row.id,
+      course_name: row.name,
+      club_name: unwrapRow<{ name: string }>(row.clubs)?.name ?? null,
+      county_name: unwrapRow<{ name: string }>(row.counties)?.name ?? null,
+    };
+  });
+
+  // Hydrate the row into the typed shape (no `course_count` join
+  // here — the editor renders its own list and counts client-side).
+  const row: CuratedListRow = {
+    ...listResult.data,
+    course_count: courses.length,
+  };
+
+  const status = statusFor(row);
+  const cover = listCoverURL(row.cover_storage_key);
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <SectionHeader
+        title={row.name}
+        description={
+          row.bio?.slice(0, 240) ??
+          row.description ??
+          "Editorial curated list — full control of every field below."
+        }
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
+        {row.tier && (
+          <Badge variant="secondary" className="capitalize">
+            {row.tier}
+          </Badge>
+        )}
+        <Badge variant="outline">
+          {courses.length} {courses.length === 1 ? "course" : "courses"}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          Updated {new Date(row.updated_at).toLocaleString()}
+        </span>
+      </div>
+
+      <CuratedEditor row={row} courses={courses} catalog={catalog} coverURL={cover} />
+    </div>
+  );
+}
+
+// Local types for the joined relations Supabase JS returns.
+// `clubs` / `counties` come back as arrays even when the FK is
+// one-to-one — the runtime is always either an array or a single
+// object depending on the embed kind. `unwrapRow` handles both.
+type CourseRowFromJoin = {
+  name: string;
+  clubs: { name: string }[] | { name: string } | null;
+  counties: { name: string }[] | { name: string } | null;
+};
+
+function unwrapRow<T>(value: unknown): T | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) return (value[0] as T | undefined) ?? null;
+  return value as T;
+}

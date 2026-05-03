@@ -43,3 +43,24 @@ export function listCoverURL(key: string | null | undefined): string | null {
   const base = `${SUPABASE_URL}/storage/v1/object/public/list-covers/${path}`;
   return query ? `${base}?${query}` : base;
 }
+
+/**
+ * Storage path layout for curated covers, distinct from user lists
+ * (which write to `<owner_user_id>/<list_id>.jpg`). Curated covers
+ * live under a `curated/` prefix so the admin-write RLS policy can
+ * gate on `(storage.foldername(name))[1] = 'curated'` without
+ * conflicting with the owner-folder check.
+ *
+ * Mirrors the iOS-side `LiveListCoverURLProvider` cache-busting
+ * convention: the returned `cover_storage_key` includes a `?v=`
+ * query suffix so `listCoverURL(...)` rebuilds a fresh URL after
+ * each upload.
+ */
+export function curatedCoverStorageKey(
+  curatedListId: string,
+  cacheBuster: string = crypto.randomUUID(),
+): { path: string; key: string } {
+  const path = `curated/${curatedListId.toLowerCase()}/cover.jpg`;
+  const key = `${path}?v=${cacheBuster}`;
+  return { path, key };
+}

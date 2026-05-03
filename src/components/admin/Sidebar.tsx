@@ -17,7 +17,8 @@ const NAV: NavItem[] = [
   { href: "/scorecards", label: "Scorecards", group: "queues", ready: false },
   { href: "/photos", label: "Photo moderation", group: "queues", ready: false },
   { href: "/feedback", label: "Feedback triage", group: "queues", ready: false },
-  { href: "/courses", label: "Courses & lists", group: "editorial", ready: false },
+  { href: "/curated", label: "Curated lists", group: "editorial", ready: true },
+  { href: "/courses", label: "Courses", group: "editorial", ready: false },
   { href: "/analytics", label: "Analytics", group: "insights", ready: false },
 ];
 
