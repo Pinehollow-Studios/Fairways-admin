@@ -122,8 +122,13 @@ function CuratedRowCard({ row }: { row: CuratedListRow }) {
             {row.course_count} {row.course_count === 1 ? "course" : "courses"}
           </Badge>
           {row.tags.slice(0, 3).map((tag) => (
+            // Tags display as bare labels — no `#` prefix.
+            // The stored value never carries one (admin input
+            // strips leading `#` in the editor) and the iOS
+            // app renders the same way, so the dashboard reads
+            // identically to what users see.
             <Badge key={tag} variant="outline" className="font-normal">
-              #{tag}
+              {tag}
             </Badge>
           ))}
           {row.tags.length > 3 && (

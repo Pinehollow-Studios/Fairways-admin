@@ -206,13 +206,18 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
   }
 
   function addTag() {
-    const t = tagInput.trim().toLowerCase();
-    if (!t) return;
-    if (tags.includes(t)) {
+    // Strip any leading `#` characters — admins type either
+    // "heathland" or "#heathland" interchangeably; we always
+    // store the bare label so the iOS render doesn't double-up
+    // (#heathland → ## on iOS) and so the index card's `#`
+    // prefix display stays a styling concern, not data.
+    const cleaned = tagInput.trim().toLowerCase().replace(/^#+/, "").trim();
+    if (!cleaned) return;
+    if (tags.includes(cleaned)) {
       setTagInput("");
       return;
     }
-    setTags([...tags, t]);
+    setTags([...tags, cleaned]);
     setTagInput("");
   }
 
@@ -316,7 +321,7 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
                   onClick={() => removeTag(tag)}
                   className="inline-flex items-center gap-1 rounded-4xl border bg-secondary px-2 py-0.5 text-xs hover:bg-destructive/10 hover:text-destructive"
                 >
-                  #{tag}
+                  {tag}
                   <span aria-hidden>×</span>
                 </button>
               ))}
