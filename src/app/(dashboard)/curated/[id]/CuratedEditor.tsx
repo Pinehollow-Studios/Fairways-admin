@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   updateCuratedList,
   uploadCuratedCover,
 } from "../actions";
+import { CoverCropDialog } from "./CoverCropDialog";
 import {
   type CourseCatalogRow,
   type CuratedCourseRow,
@@ -73,12 +74,20 @@ function CoverEditor({
   coverURL: string | null;
 }) {
   const [pending, startTransition] = useTransition();
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  function onPick(file: File | null) {
-    if (!file) return;
+  function onCropConfirm(blob: Blob) {
+    setPickedFile(null);
     startTransition(async () => {
+      // The cropper renders a 1600×900 JPEG (~150 KB typical),
+      // which sits well inside the bucket's 2 MB cap. We hand
+      // the bytes to the existing `uploadCuratedCover` action via
+      // FormData with a stable filename — Storage uses the
+      // upload path, not the file name, so the name is mostly
+      // for the server's content-disposition.
       const formData = new FormData();
-      formData.append("cover", file);
+      formData.append("cover", new File([blob], "cover.jpg", { type: "image/jpeg" }));
       const result = await uploadCuratedCover(row.id, formData);
       if (!result.ok) toast.error(result.message);
       else toast.success("Cover uploaded");
@@ -93,14 +102,18 @@ function CoverEditor({
     });
   }
 
+  function openPicker() {
+    fileInputRef.current?.click();
+  }
+
   return (
     <section className="space-y-3 rounded-xl border bg-card p-4 ring-1 ring-foreground/10">
       <header>
         <h3 className="font-heading text-sm">Cover image</h3>
         <p className="text-xs text-muted-foreground">
-          16:9 JPEG, up to 2 MB. Pre-crop before upload — admins
-          don&apos;t get the in-app crop tool, what you upload is
-          what users see.
+          16:9 JPEG. Pick any photo — the cropper opens so you
+          can frame it exactly the way the iOS app crops user
+          covers (drag to reframe, scroll / pinch to zoom).
         </p>
       </header>
       <div className="aspect-video w-full overflow-hidden rounded-md bg-muted">
@@ -118,22 +131,23 @@ function CoverEditor({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <label
-          className={
-            pending
-              ? "pointer-events-none inline-flex h-7 cursor-not-allowed items-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground opacity-50"
-              : "inline-flex h-7 cursor-pointer items-center rounded-md bg-primary px-2.5 text-[0.8rem] font-medium text-primary-foreground hover:bg-primary/90"
-          }
-        >
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
-            disabled={pending}
-            onChange={(e) => onPick(e.target.files?.[0] ?? null)}
-          />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null;
+            // Reset the input so picking the same file again
+            // re-opens the cropper (browsers suppress `change`
+            // on identical re-selection without this).
+            e.target.value = "";
+            if (file) setPickedFile(file);
+          }}
+        />
+        <Button size="sm" disabled={pending} onClick={openPicker}>
           {pending ? "Working…" : coverURL ? "Replace" : "Upload"}
-        </label>
+        </Button>
         {coverURL && (
           <Button
             size="sm"
@@ -145,6 +159,11 @@ function CoverEditor({
           </Button>
         )}
       </div>
+      <CoverCropDialog
+        file={pickedFile}
+        onClose={() => setPickedFile(null)}
+        onConfirm={onCropConfirm}
+      />
     </section>
   );
 }
