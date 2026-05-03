@@ -9,12 +9,8 @@ import { QueueActions } from "./QueueActions";
  * the 2026-05-03 enrichment migration
  * (`20260503111000_admin_verification_queue_enrich.sql`).
  *
- * Earlier shape was just `(list_id, list_name, owner_user_id,
- * owner_username, verification_requested_at, course_count)`. The
- * widened shape ships the full review payload — description,
- * cover, owner profile, embedded courses array — so a moderator
- * can decide on the dashboard without separate queries against
- * `user_lists`, `users`, `user_list_courses`, `clubs`, `counties`.
+ * Server orders oldest-first by `verification_requested_at` so
+ * the dashboard renders straight through without sorting.
  */
 type CourseRow = {
   course_id: string;
@@ -54,10 +50,10 @@ export default async function ListVerificationPage() {
   const queue = (data as QueueRow[] | null) ?? [];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <SectionHeader
         title="List verification"
-        description="Public user lists awaiting the verified stamp. Review the full content — title, description, cover, courses, owner — then approve to set verified_at (which freezes the list against further edits) or reject to clear the request and let the owner re-edit."
+        description="Public user lists awaiting the verified stamp. Oldest submission first — work top to bottom. Approve to set verified_at (which freezes the list against further edits) or reject to clear the request and let the owner re-edit."
       />
 
       {error && (
@@ -76,10 +72,53 @@ export default async function ListVerificationPage() {
       )}
 
       {queue.length > 0 && (
-        <div className="space-y-4">
-          {queue.map((row) => (
-            <QueueCard key={row.list_id} row={row} />
-          ))}
+        <>
+          <QueueSummary queue={queue} />
+          <ol className="snap-y snap-proximity space-y-6">
+            {queue.map((row, index) => (
+              <li key={row.list_id} className="snap-start scroll-mt-6">
+                <QueueCard
+                  row={row}
+                  position={index + 1}
+                  total={queue.length}
+                />
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </div>
+  );
+}
+
+function QueueSummary({ queue }: { queue: QueueRow[] }) {
+  const oldest = queue[0]?.verification_requested_at;
+  const newest = queue[queue.length - 1]?.verification_requested_at;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/50 px-4 py-3 text-xs">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className="font-medium text-foreground">
+          {queue.length} {queue.length === 1 ? "list" : "lists"} waiting
+        </span>
+        <span aria-hidden>·</span>
+        <span>oldest first</span>
+      </div>
+      {oldest && (
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <span>
+            Top of queue waiting{" "}
+            <span className="font-medium text-foreground">
+              {formatRequested(oldest)}
+            </span>
+          </span>
+          {queue.length > 1 && newest && (
+            <>
+              <span aria-hidden>·</span>
+              <span>
+                Newest <span className="text-foreground">{formatRequested(newest)}</span>
+              </span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -87,96 +126,134 @@ export default async function ListVerificationPage() {
 }
 
 /**
- * Single review card. Two-column layout on `md+`: cover image
- * banner left (16:9, fills the column), every other field right.
- * Stacks vertically on small screens.
+ * Single review card. Cover banner sits on top in a 16:9 frame
+ * matching the iOS upload aspect — so the admin sees exactly the
+ * crop the user picked, not a stretched slice. Body underneath
+ * carries title, owner, courses, actions.
+ *
+ * Position indicator on the cover doubles as a queue-progress
+ * affordance so the admin knows where they are without scrolling
+ * back to the summary header.
  */
-function QueueCard({ row }: { row: QueueRow }) {
+function QueueCard({
+  row,
+  position,
+  total,
+}: {
+  row: QueueRow;
+  position: number;
+  total: number;
+}) {
   const coverURL = listCoverURL(row.cover_storage_key);
   const ownerAvatarURL = avatarURL(row.owner_user_id, row.owner_avatar_photo_id);
   const courses = row.courses ?? [];
   const truncated = courses.length < row.course_count;
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card ring-1 ring-foreground/10">
-      <div className="grid gap-0 md:grid-cols-[280px_1fr]">
-        <CoverBanner url={coverURL} title={row.list_name} />
-        <div className="flex flex-col gap-4 p-5">
-          <header className="space-y-2">
-            <div className="flex items-start gap-3">
-              <div className="flex-1 space-y-1">
-                <h2 className="font-heading text-xl leading-tight">
-                  {row.list_name}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Requested {formatRequested(row.verification_requested_at)} ·
-                  created {formatDate(row.created_at)}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="secondary">{row.privacy_kind}</Badge>
-                <Badge variant="outline">
-                  {row.course_count}{" "}
-                  {row.course_count === 1 ? "course" : "courses"}
-                </Badge>
-                {truncated && (
-                  <Badge variant="destructive">
-                    truncated to {courses.length}
-                  </Badge>
-                )}
-              </div>
+    <article className="overflow-hidden rounded-xl border bg-card ring-1 ring-foreground/10">
+      <CoverBanner
+        url={coverURL}
+        title={row.list_name}
+        position={position}
+        total={total}
+        waitingFor={formatRequested(row.verification_requested_at)}
+      />
+
+      <div className="flex flex-col gap-4 p-5">
+        <header className="space-y-2">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 space-y-1">
+              <h2 className="font-heading text-xl leading-tight">
+                {row.list_name}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Requested {formatRequested(row.verification_requested_at)} ·
+                created {formatDate(row.created_at)}
+              </p>
             </div>
-          </header>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="secondary">{row.privacy_kind}</Badge>
+              <Badge variant="outline">
+                {row.course_count}{" "}
+                {row.course_count === 1 ? "course" : "courses"}
+              </Badge>
+              {truncated && (
+                <Badge variant="destructive">
+                  truncated to {courses.length}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </header>
 
-          {row.list_description && (
-            <section className="rounded-lg bg-muted/30 p-3 text-sm leading-relaxed">
-              {row.list_description}
-            </section>
-          )}
+        {row.list_description && (
+          <section className="rounded-lg bg-muted/30 p-3 text-sm leading-relaxed">
+            {row.list_description}
+          </section>
+        )}
 
-          <OwnerBlock
-            displayName={row.owner_display_name}
-            firstName={row.owner_first_name}
-            username={row.owner_username}
-            avatarURL={ownerAvatarURL}
-            bio={row.owner_bio}
-          />
+        <OwnerBlock
+          displayName={row.owner_display_name}
+          firstName={row.owner_first_name}
+          username={row.owner_username}
+          avatarURL={ownerAvatarURL}
+          bio={row.owner_bio}
+        />
 
-          <CourseList courses={courses} totalCount={row.course_count} />
+        <CourseList courses={courses} totalCount={row.course_count} />
 
-          <footer className="flex justify-end pt-2">
-            <QueueActions listId={row.list_id} listName={row.list_name} />
-          </footer>
-        </div>
+        <footer className="flex justify-end pt-2">
+          <QueueActions listId={row.list_id} listName={row.list_name} />
+        </footer>
       </div>
-    </div>
+    </article>
   );
 }
 
 function CoverBanner({
   url,
   title,
+  position,
+  total,
+  waitingFor,
 }: {
   url: string | null;
   title: string;
+  position: number;
+  total: number;
+  waitingFor: string;
 }) {
-  if (url) {
-    return (
-      // Plain <img> rather than next/image to avoid the
-      // `images.remotePatterns` config — the dashboard is a
-      // low-traffic admin tool, the bytes are public-read,
-      // image optimisation isn't load-bearing here.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={url}
-        alt={`Cover for ${title}`}
-        className="aspect-video w-full bg-muted object-cover md:aspect-auto md:h-full"
-      />
-    );
-  }
   return (
-    <div className="flex aspect-video w-full items-center justify-center bg-muted text-xs uppercase tracking-wider text-muted-foreground md:aspect-auto md:h-full">
-      No cover
+    <div className="relative aspect-video w-full overflow-hidden bg-muted">
+      {url ? (
+        // Plain <img> rather than next/image to avoid the
+        // `images.remotePatterns` config — the dashboard is a
+        // low-traffic admin tool, the bytes are public-read,
+        // image optimisation isn't load-bearing here.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={`Cover for ${title}`}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-wider text-muted-foreground">
+          No cover
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+        <span className="rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium tabular-nums shadow-sm backdrop-blur-sm">
+          {position} / {total}
+          {position === 1 && total > 1 && (
+            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Oldest
+            </span>
+          )}
+        </span>
+        <span className="rounded-full bg-background/85 px-2.5 py-1 text-xs shadow-sm backdrop-blur-sm">
+          Waiting <span className="font-medium">{waitingFor}</span>
+        </span>
+      </div>
     </div>
   );
 }
