@@ -39,7 +39,7 @@ const NAV: NavItem[] = [
   { href: "/photos", label: "Photo moderation", group: "queues", ready: false, icon: Images },
   { href: "/feedback", label: "Feedback triage", group: "queues", ready: false, icon: MessageSquareWarning },
   { href: "/curated", label: "Curated lists", group: "editorial", ready: true, icon: Sparkles, countKey: "curated" },
-  { href: "/courses", label: "Courses", group: "editorial", ready: false, icon: MapPin },
+  { href: "/courses", label: "Courses", group: "editorial", ready: true, icon: MapPin, countKey: "courses" },
   { href: "/analytics", label: "Analytics", group: "insights", ready: false, icon: BarChart3 },
 ];
 

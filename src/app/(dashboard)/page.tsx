@@ -211,14 +211,9 @@ export default async function OverviewPage() {
           <OverviewCard
             href="/courses"
             title="Courses"
-            description="Master course catalog — names, tiers, club + county joins, photos."
-            status="soon"
-            plannedSurfaces={[
-              "Searchable course table with edit-in-place",
-              "Tier and visibility controls per course",
-              "Cover photo + gallery management",
-              "Memberships across curated lists",
-            ]}
+            description="Master course catalogue — search, filter, edit editorial fields (par, yards, style, established, description), upload hero photos."
+            status="live"
+            ctaLabel="Open catalogue"
           />
         </div>
       </section>

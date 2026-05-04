@@ -64,3 +64,37 @@ export function curatedCoverStorageKey(
   const key = `${path}?v=${cacheBuster}`;
   return { path, key };
 }
+
+/**
+ * Course hero photo public URL builder. Mirrors `listCoverURL`'s
+ * shape but reads from the `course-covers` bucket (created by
+ * `20260504200200_course_covers_bucket.sql`). The
+ * `hero_photo_storage_key` column carries the relative path with a
+ * `?v=<UUID>` cache-buster suffix so a fresh upload invalidates
+ * iOS's Nuke cache + browsers' HTTP caches.
+ */
+export function courseCoverURL(key: string | null | undefined): string | null {
+  if (!key || !SUPABASE_URL) return null;
+  const [path, query] = key.split("?", 2);
+  const base = `${SUPABASE_URL}/storage/v1/object/public/course-covers/${path}`;
+  return query ? `${base}?${query}` : base;
+}
+
+/**
+ * Storage path layout for course hero photos. Each course has at
+ * most one hero at the canonical path
+ * `course-covers/<course_id>/cover.jpg`; uploads overwrite via
+ * `upsert: true`, with a fresh `?v=<UUID>` cache-buster query
+ * suffix so iOS Nuke + browsers refetch.
+ *
+ * The whole bucket is admin-only (no folder-prefix gate) per
+ * `20260504200300_course_covers_admin_writes.sql`.
+ */
+export function courseCoverStorageKey(
+  courseId: string,
+  cacheBuster: string = crypto.randomUUID(),
+): { path: string; key: string } {
+  const path = `${courseId.toLowerCase()}/cover.jpg`;
+  const key = `${path}?v=${cacheBuster}`;
+  return { path, key };
+}

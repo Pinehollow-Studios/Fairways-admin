@@ -14,17 +14,21 @@ export default async function DashboardLayout({
   // dynamic pip badges next to each live nav item. Failures fall
   // through silently — the nav item just shows no badge.
   const supabase = await createClient();
-  const [queueRes, curatedRes] = await Promise.all([
+  const [queueRes, curatedRes, coursesRes] = await Promise.all([
     supabase.rpc("admin_list_verification_queue"),
     supabase
       .from("curated_lists")
       .select("id", { count: "exact", head: true })
       .eq("is_archived", false),
+    supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true }),
   ]);
 
   const counts = {
     verification: Array.isArray(queueRes.data) ? queueRes.data.length : 0,
     curated: curatedRes.count ?? 0,
+    courses: coursesRes.count ?? 0,
   };
 
   return (
