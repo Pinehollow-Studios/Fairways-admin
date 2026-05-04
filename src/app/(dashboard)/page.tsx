@@ -1,6 +1,7 @@
 import { OverviewCard, PreviewList, StatusBreakdown } from "@/components/admin/OverviewCard";
 import { StatsStrip, type Stat } from "@/components/admin/StatsStrip";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { statusFor, type CuratedListStatus } from "./curated/types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ type CuratedRow = {
 
 export default async function OverviewPage() {
   const supabase = await createClient();
+  const admin = await requireAdmin();
 
   // Fetch real data for the two live sections in parallel. Each
   // result is independently nullable — if either query 500s the
@@ -49,9 +51,6 @@ export default async function OverviewPage() {
   const curatedLiveCount = curatedByStatus.live;
   const curatedDraftCount = curatedByStatus.draft + curatedByStatus.scheduled;
 
-  // Stats row up top — only counts we can stand behind. Soon
-  // sections render a `null` so the user sees the slot exists but
-  // it isn't lying about the number.
   const stats: Stat[] = [
     {
       key: "verification",
@@ -103,24 +102,18 @@ export default async function OverviewPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <header className="space-y-2">
-        <h1 className="font-heading text-3xl tracking-tight">Overview</h1>
-        <p className="max-w-prose text-sm text-muted-foreground">
-          Operational queues and editorial surfaces. Counts are live where the
-          backend is wired; soon sections describe what they&rsquo;ll show once
-          the matching iOS slice lands.
-        </p>
-      </header>
+    <div className="mx-auto max-w-6xl space-y-10">
+      <HeroGreeting email={admin.email} queueLen={queue.length} curatedLive={curatedLiveCount} />
 
       <StatsStrip stats={stats} />
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <SectionLabel
           title="Queues"
           subtitle="Time-sensitive review work — clear these first."
+          accent="queues"
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <OverviewCard
             href="/lists"
             title="List verification"
@@ -128,7 +121,7 @@ export default async function OverviewPage() {
             status="live"
             count={queue.length}
             accent={queue.length === 0 ? "All clear" : "in queue"}
-            ctaLabel={queue.length === 0 ? "Open queue →" : `Review ${queue.length} →`}
+            ctaLabel={queue.length === 0 ? "Open queue" : `Review ${queue.length}`}
           >
             <PreviewList
               items={queuePreview}
@@ -177,10 +170,11 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <SectionLabel
           title="Editorial"
           subtitle="Content under Fairways’ own byline."
+          accent="editorial"
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <OverviewCard
@@ -190,7 +184,7 @@ export default async function OverviewPage() {
             status="live"
             count={curated.length}
             accent="lists total"
-            ctaLabel={`Open ${curated.length} ${curated.length === 1 ? "list" : "lists"} →`}
+            ctaLabel={`Open ${curated.length} ${curated.length === 1 ? "list" : "lists"}`}
           >
             <div className="space-y-3">
               <StatusBreakdown
@@ -203,7 +197,7 @@ export default async function OverviewPage() {
                 ]}
               />
               <div className="space-y-1.5">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
                   Recently edited
                 </p>
                 <PreviewList
@@ -229,10 +223,11 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <SectionLabel
           title="Insights"
           subtitle="Signal across product, content, and ops."
+          accent="insights"
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <OverviewCard
@@ -251,7 +246,7 @@ export default async function OverviewPage() {
       </section>
 
       {(queueRes.error || curatedRes.error) && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive">
+        <div className="rounded-2xl border border-alert/40 bg-alert/10 p-4 text-xs text-alert">
           Some live data failed to load:
           {queueRes.error && <> verification queue ({queueRes.error.message}).</>}
           {curatedRes.error && <> curated lists ({curatedRes.error.message}).</>}
@@ -261,15 +256,143 @@ export default async function OverviewPage() {
   );
 }
 
-function SectionLabel({ title, subtitle }: { title: string; subtitle: string }) {
+/**
+ * Branded hero. Sets the tone for the whole dashboard with a deep
+ * brand-green panel, an editorial serif greeting, and at-a-glance
+ * "what's hot today" copy keyed off the live counts.
+ */
+function HeroGreeting({
+  email,
+  queueLen,
+  curatedLive,
+}: {
+  email: string | null;
+  queueLen: number;
+  curatedLive: number;
+}) {
+  const greeting = greetingFor(new Date());
+  const name = email?.split("@")[0] ?? "admin";
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-        {title}
-      </h2>
-      <p className="hidden text-xs text-muted-foreground/80 sm:block">
-        {subtitle}
-      </p>
+    <section
+      className="relative overflow-hidden rounded-3xl border border-brand-deep/30 px-6 py-8 text-brand-fg shadow-[0_24px_48px_-24px_color-mix(in_oklab,var(--brand-deep)_55%,transparent)] sm:px-8 sm:py-10"
+      style={{
+        background:
+          "linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 60%, color-mix(in oklab, var(--brand) 65%, var(--brand-soft)) 100%)",
+      }}
+    >
+      {/* Faint topo-style overlay — circles evoke the iOS map polygons. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-25"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 90% 10%, rgba(251,246,232,0.35) 0%, transparent 50%)," +
+            "radial-gradient(circle at 10% 100%, rgba(251,246,232,0.18) 0%, transparent 60%)",
+        }}
+      />
+      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-fg/70">
+            {greeting} · {todayLabel(new Date())}
+          </p>
+          <h1 className="display-serif text-3xl font-semibold leading-tight sm:text-4xl">
+            Welcome back, <span className="italic">{name}</span>.
+          </h1>
+          <p className="max-w-prose text-sm leading-relaxed text-brand-fg/85">
+            {summaryLine(queueLen, curatedLive)}
+          </p>
+        </div>
+        <ul className="flex shrink-0 flex-wrap gap-3 text-brand-fg/95">
+          <HeroPill label="In queue" value={queueLen} highlight={queueLen > 0} />
+          <HeroPill label="Curated live" value={curatedLive} />
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function HeroPill({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <li
+      className={
+        "flex min-w-[120px] flex-col gap-1 rounded-2xl border border-brand-fg/15 bg-brand-deep/30 px-4 py-3 backdrop-blur-sm" +
+        (highlight ? " ring-1 ring-brand-fg/40" : "")
+      }
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-fg/70">
+        {label}
+      </span>
+      <span className="font-hero text-3xl leading-none tabular-nums">
+        {value}
+      </span>
+    </li>
+  );
+}
+
+function summaryLine(queueLen: number, curatedLive: number): string {
+  const queuePart =
+    queueLen === 0
+      ? "Verification queue is clear."
+      : queueLen === 1
+        ? "One list is waiting on verification."
+        : `${queueLen} lists are waiting on verification.`;
+  const curatedPart =
+    curatedLive === 0
+      ? " No curated lists are live yet — the editorial surface is ready for its first publish."
+      : curatedLive === 1
+        ? " One curated list is currently live in the iOS app."
+        : ` ${curatedLive} curated lists are currently live in the iOS app.`;
+  return queuePart + curatedPart;
+}
+
+function greetingFor(date: Date): string {
+  const h = date.getHours();
+  if (h < 5) return "Late night";
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function todayLabel(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+function SectionLabel({
+  title,
+  subtitle,
+  accent,
+}: {
+  title: string;
+  subtitle: string;
+  accent: "queues" | "editorial" | "insights";
+}) {
+  const dotClass =
+    accent === "queues"
+      ? "bg-brand"
+      : accent === "editorial"
+        ? "bg-info"
+        : "bg-bucket";
+  return (
+    <div className="flex items-end justify-between gap-3 border-b border-border/60 pb-2">
+      <div className="flex items-center gap-2">
+        <span aria-hidden className={"size-2 rounded-full " + dotClass} />
+        <h2 className="font-heading text-sm font-semibold uppercase tracking-[0.14em] text-ink">
+          {title}
+        </h2>
+      </div>
+      <p className="hidden text-xs text-ink-3 sm:block">{subtitle}</p>
     </div>
   );
 }

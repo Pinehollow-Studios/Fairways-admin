@@ -99,3 +99,30 @@ export const STATUS_VARIANT: Record<
   expired: "destructive",
   archived: "ghost",
 };
+
+/**
+ * Coloured chip class per status. Uses brand green for `live`
+ * (the editorially-positive state) and the semantic info / alert
+ * tokens for the rest so the status reads at a glance.
+ */
+export const STATUS_CHIP: Record<CuratedListStatus, string> = {
+  draft:
+    "border-border bg-paper-sunken/70 text-ink-2",
+  scheduled:
+    "border-info/30 bg-info/10 text-info",
+  live:
+    "border-brand/40 bg-brand text-brand-fg",
+  expired:
+    "border-alert/30 bg-alert/10 text-alert",
+  archived:
+    "border-ink-3/30 bg-ink-3/10 text-ink-3",
+};
+
+/** Tone bar accent (left edge / dot) per status. */
+export const STATUS_DOT: Record<CuratedListStatus, string> = {
+  draft: "bg-ink-3/55",
+  scheduled: "bg-info",
+  live: "bg-brand",
+  expired: "bg-alert",
+  archived: "bg-ink-3/40",
+};

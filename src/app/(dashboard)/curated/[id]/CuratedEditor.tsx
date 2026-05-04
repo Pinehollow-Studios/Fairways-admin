@@ -107,9 +107,9 @@ function CoverEditor({
   }
 
   return (
-    <section className="space-y-3 rounded-xl border bg-card p-4 ring-1 ring-foreground/10">
+    <section className="space-y-3 rounded-2xl border border-border bg-paper-raised p-4 ring-1 ring-foreground/5">
       <header>
-        <h3 className="font-heading text-sm">Cover image</h3>
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-brand-deep dark:text-brand-soft">Cover image</h3>
         <p className="text-xs text-muted-foreground">
           16:9 JPEG. Pick any photo — the cropper opens so you
           can frame it exactly the way the iOS app crops user
@@ -239,9 +239,9 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
     isOrdered !== row.is_ordered;
 
   return (
-    <section className="space-y-4 rounded-xl border bg-card p-4 ring-1 ring-foreground/10">
+    <section className="space-y-4 rounded-2xl border border-border bg-paper-raised p-4 ring-1 ring-foreground/5">
       <header>
-        <h3 className="font-heading text-sm">Editorial</h3>
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-brand-deep dark:text-brand-soft">Editorial</h3>
         <p className="text-xs text-muted-foreground">
           Everything users see in the app — title, summary, bio,
           tags, region, tier.
@@ -278,7 +278,7 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           rows={5}
-          className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex min-h-20 w-full rounded-lg border border-input bg-paper-sunken/40 px-3 py-2 text-sm transition-colors placeholder:text-ink-3 focus-visible:border-brand/60 focus-visible:bg-paper-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
         />
       </Field>
 
@@ -288,7 +288,7 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
         </Field>
         <Field label="Tier" hint="Flagship sorts first.">
           <select
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
+            className="flex h-9 w-full rounded-lg border border-input bg-paper-sunken/40 px-3 py-1 text-sm transition-colors focus-visible:border-brand/60 focus-visible:bg-paper-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
             value={tier}
             onChange={(e) => setTier(e.target.value as CuratedListTier | "")}
           >
@@ -319,7 +319,7 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
                   key={tag}
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="inline-flex items-center gap-1 rounded-4xl border bg-secondary px-2 py-0.5 text-xs hover:bg-destructive/10 hover:text-destructive"
+                  className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 text-xs text-brand-deep transition-colors hover:border-alert/40 hover:bg-alert/10 hover:text-alert dark:text-brand-soft"
                 >
                   {tag}
                   <span aria-hidden>×</span>
@@ -343,7 +343,7 @@ function EditorialForm({ row }: { row: CuratedListRow }) {
         </Field>
         <Field label="Ordered list?" hint="Top 100 = yes; collection = no.">
           <select
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs"
+            className="flex h-9 w-full rounded-lg border border-input bg-paper-sunken/40 px-3 py-1 text-sm transition-colors focus-visible:border-brand/60 focus-visible:bg-paper-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
             value={isOrdered ? "yes" : "no"}
             onChange={(e) => setIsOrdered(e.target.value === "yes")}
           >
@@ -463,9 +463,9 @@ function PublishControls({ row }: { row: CuratedListRow }) {
   }
 
   return (
-    <section className="space-y-4 rounded-xl border bg-card p-4 ring-1 ring-foreground/10">
+    <section className="space-y-4 rounded-2xl border border-border bg-paper-raised p-4 ring-1 ring-foreground/5">
       <header>
-        <h3 className="font-heading text-sm">Publish</h3>
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-brand-deep dark:text-brand-soft">Publish</h3>
         <p className="text-xs text-muted-foreground">
           Currently <span className="font-medium">{STATUS_LABELS[status]}</span>.
           {status === "live" && row.unpublished_at && (
@@ -481,7 +481,7 @@ function PublishControls({ row }: { row: CuratedListRow }) {
         <Button
           onClick={publishNow}
           disabled={pending || status === "live"}
-          className="w-full"
+          className="w-full bg-brand text-brand-fg hover:bg-brand-deep"
         >
           {status === "live" ? "Already live" : "Publish now"}
         </Button>
@@ -587,10 +587,10 @@ function CourseSection({
 }) {
   const onListIds = useMemo(() => new Set(courses.map((c) => c.course_id)), [courses]);
   return (
-    <section className="space-y-4 rounded-xl border bg-card p-4 ring-1 ring-foreground/10">
+    <section className="space-y-4 rounded-2xl border border-border bg-paper-raised p-4 ring-1 ring-foreground/5">
       <header className="flex items-center justify-between">
         <div>
-          <h3 className="font-heading text-base">Courses</h3>
+          <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-brand-deep dark:text-brand-soft">Courses</h3>
           <p className="text-xs text-muted-foreground">
             Drag to reorder, swipe to remove (use the row buttons).
             Add courses from the picker.

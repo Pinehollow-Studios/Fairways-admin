@@ -1,3 +1,4 @@
+import { CalendarClock, Clock, Hash, ListChecks, MapPin } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
@@ -52,24 +53,18 @@ export default async function ListVerificationPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <SectionHeader
+        eyebrow="Queues · review"
         title="List verification"
         description="Public user lists awaiting the verified stamp. Oldest submission first — work top to bottom. Approve to set verified_at (which freezes the list against further edits) or reject to clear the request and let the owner re-edit."
       />
 
       {error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-2xl border border-alert/40 bg-alert/10 p-4 text-sm text-alert">
           Failed to load queue: {error.message}
         </div>
       )}
 
-      {!error && queue.length === 0 && (
-        <div className="rounded-lg border border-dashed bg-card/50 p-12 text-center">
-          <p className="text-sm font-medium">Queue is empty</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            No public lists are awaiting verification.
-          </p>
-        </div>
-      )}
+      {!error && queue.length === 0 && <EmptyQueue />}
 
       {queue.length > 0 && (
         <>
@@ -91,23 +86,52 @@ export default async function ListVerificationPage() {
   );
 }
 
+function EmptyQueue() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-dashed border-border/70 bg-paper-raised/60 p-12 text-center">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-50"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--brand) 12%, transparent) 0%, transparent 60%)",
+        }}
+      />
+      <div className="relative flex flex-col items-center gap-2">
+        <span
+          aria-hidden
+          className="flex size-10 items-center justify-center rounded-full bg-brand/15 text-brand-deep dark:text-brand-soft"
+        >
+          <ListChecks className="size-5" />
+        </span>
+        <p className="font-heading text-base font-semibold text-ink">Queue is clear</p>
+        <p className="text-sm text-ink-2">
+          No public lists are awaiting verification.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function QueueSummary({ queue }: { queue: QueueRow[] }) {
   const oldest = queue[0]?.verification_requested_at;
   const newest = queue[queue.length - 1]?.verification_requested_at;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/50 px-4 py-3 text-xs">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="font-medium text-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/25 bg-brand/8 px-4 py-3 text-xs text-brand-deep dark:bg-brand/15 dark:text-brand-soft">
+      <div className="flex items-center gap-2">
+        <span aria-hidden className="size-2 rounded-full bg-brand" />
+        <span className="font-semibold">
           {queue.length} {queue.length === 1 ? "list" : "lists"} waiting
         </span>
-        <span aria-hidden>·</span>
-        <span>oldest first</span>
+        <span className="text-ink-3">·</span>
+        <span className="text-ink-3">oldest first</span>
       </div>
       {oldest && (
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <span>
+        <div className="flex items-center gap-3 text-ink-3">
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarClock aria-hidden className="size-3" />
             Top of queue waiting{" "}
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-ink">
               {formatRequested(oldest)}
             </span>
           </span>
@@ -115,7 +139,7 @@ function QueueSummary({ queue }: { queue: QueueRow[] }) {
             <>
               <span aria-hidden>·</span>
               <span>
-                Newest <span className="text-foreground">{formatRequested(newest)}</span>
+                Newest <span className="font-medium text-ink">{formatRequested(newest)}</span>
               </span>
             </>
           )}
@@ -125,16 +149,6 @@ function QueueSummary({ queue }: { queue: QueueRow[] }) {
   );
 }
 
-/**
- * Single review card. Cover banner sits on top in a 16:9 frame
- * matching the iOS upload aspect — so the admin sees exactly the
- * crop the user picked, not a stretched slice. Body underneath
- * carries title, owner, courses, actions.
- *
- * Position indicator on the cover doubles as a queue-progress
- * affordance so the admin knows where they are without scrolling
- * back to the summary header.
- */
 function QueueCard({
   row,
   position,
@@ -150,7 +164,7 @@ function QueueCard({
   const truncated = courses.length < row.course_count;
 
   return (
-    <article className="overflow-hidden rounded-xl border bg-card ring-1 ring-foreground/10">
+    <article className="overflow-hidden rounded-2xl border border-border bg-paper-raised ring-1 ring-foreground/5 shadow-[0_1px_2px_rgba(31,42,36,0.04)] transition-colors hover:border-brand/40 hover:ring-brand/15">
       <CoverBanner
         url={coverURL}
         title={row.list_name}
@@ -163,17 +177,25 @@ function QueueCard({
         <header className="space-y-2">
           <div className="flex items-start gap-3">
             <div className="flex-1 space-y-1">
-              <h2 className="font-heading text-xl leading-tight">
+              <h2 className="font-heading text-xl font-semibold leading-tight text-ink">
                 {row.list_name}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                Requested {formatRequested(row.verification_requested_at)} ·
-                created {formatDate(row.created_at)}
+              <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
+                <Clock aria-hidden className="size-3" />
+                Requested {formatRequested(row.verification_requested_at)}
+                <span aria-hidden>·</span>
+                <span>created {formatDate(row.created_at)}</span>
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="secondary">{row.privacy_kind}</Badge>
-              <Badge variant="outline">
+              <Badge
+                variant="outline"
+                className="border-brand/30 bg-brand/10 text-brand-deep dark:text-brand-soft"
+              >
+                {row.privacy_kind}
+              </Badge>
+              <Badge variant="outline" className="border-border bg-paper-sunken/60">
+                <Hash aria-hidden className="size-3" />
                 {row.course_count}{" "}
                 {row.course_count === 1 ? "course" : "courses"}
               </Badge>
@@ -187,7 +209,7 @@ function QueueCard({
         </header>
 
         {row.list_description && (
-          <section className="rounded-lg bg-muted/30 p-3 text-sm leading-relaxed">
+          <section className="rounded-xl border border-border/60 bg-paper-sunken/50 p-3 text-sm leading-relaxed text-ink-2">
             {row.list_description}
           </section>
         )}
@@ -224,12 +246,10 @@ function CoverBanner({
   waitingFor: string;
 }) {
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-muted">
+    <div className="relative aspect-video w-full overflow-hidden bg-paper-sunken">
       {url ? (
-        // Plain <img> rather than next/image to avoid the
-        // `images.remotePatterns` config — the dashboard is a
-        // low-traffic admin tool, the bytes are public-read,
-        // image optimisation isn't load-bearing here.
+        // Plain <img> rather than next/image — see comment retained
+        // from the original implementation.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
@@ -237,21 +257,32 @@ function CoverBanner({
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-wider text-muted-foreground">
+        <div
+          className="flex h-full w-full items-center justify-center text-xs uppercase tracking-wider text-paper-raised/80"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%)",
+          }}
+        >
           No cover
         </div>
       )}
+      {/* Bottom gradient so chips read on busy photos. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 to-transparent"
+      />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-        <span className="rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium tabular-nums shadow-sm backdrop-blur-sm">
+        <span className="rounded-full border border-paper-raised/30 bg-paper-raised/85 px-2.5 py-1 text-xs font-semibold tabular-nums text-ink shadow-sm backdrop-blur-sm">
           {position} / {total}
           {position === 1 && total > 1 && (
-            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand-deep">
               Oldest
             </span>
           )}
         </span>
-        <span className="rounded-full bg-background/85 px-2.5 py-1 text-xs shadow-sm backdrop-blur-sm">
-          Waiting <span className="font-medium">{waitingFor}</span>
+        <span className="rounded-full border border-paper-raised/30 bg-paper-raised/85 px-2.5 py-1 text-xs text-ink shadow-sm backdrop-blur-sm">
+          Waiting <span className="font-semibold">{waitingFor}</span>
         </span>
       </div>
     </div>
@@ -274,33 +305,33 @@ function OwnerBlock({
   const initials = ownerInitials({ displayName, firstName, username });
   const heading = displayName ?? firstName ?? username;
   return (
-    <section className="flex items-start gap-3 rounded-lg border bg-background/40 p-3">
+    <section className="flex items-start gap-3 rounded-xl border border-border/60 bg-paper-sunken/40 p-3">
       {avatarURL ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarURL}
           alt={`${heading}'s avatar`}
-          className="h-10 w-10 shrink-0 rounded-full bg-muted object-cover ring-1 ring-foreground/10"
+          className="size-10 shrink-0 rounded-full bg-paper-sunken object-cover ring-1 ring-foreground/10"
         />
       ) : (
         <div
           aria-hidden
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary ring-1 ring-foreground/10"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand-deep ring-1 ring-foreground/10 dark:text-brand-soft"
         >
           {initials}
         </div>
       )}
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-medium leading-tight">
+        <p className="text-sm font-semibold leading-tight text-ink">
           {heading}
-          <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+          <span className="ml-1.5 text-xs font-normal text-ink-3">
             @{username}
           </span>
         </p>
         {bio ? (
-          <p className="text-xs leading-snug text-muted-foreground">{bio}</p>
+          <p className="text-xs leading-snug text-ink-2">{bio}</p>
         ) : (
-          <p className="text-xs italic text-muted-foreground/70">No bio set</p>
+          <p className="text-xs italic text-ink-3">No bio set</p>
         )}
       </div>
     </section>
@@ -316,35 +347,35 @@ function CourseList({
 }) {
   if (totalCount === 0) {
     return (
-      <section className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+      <section className="rounded-xl border border-dashed border-border/70 p-3 text-center text-xs text-ink-3">
         No courses on this list.
       </section>
     );
   }
   return (
     <section className="space-y-2">
-      <details className="group rounded-lg border bg-background/40">
-        <summary className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-muted-foreground select-none">
-          <span>Courses ({totalCount})</span>
-          <span className="text-muted-foreground/70 group-open:hidden">
-            Show all
+      <details className="group rounded-xl border border-border/60 bg-paper-sunken/40">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-ink-2 select-none">
+          <span className="inline-flex items-center gap-1.5">
+            <ListChecks aria-hidden className="size-3.5 text-brand" />
+            Courses ({totalCount})
           </span>
-          <span className="hidden text-muted-foreground/70 group-open:inline">
-            Hide
-          </span>
+          <span className="text-ink-3 group-open:hidden">Show all</span>
+          <span className="hidden text-ink-3 group-open:inline">Hide</span>
         </summary>
-        <ol className="divide-y border-t text-sm">
+        <ol className="divide-y divide-border/60 border-t border-border/60 text-sm">
           {courses.map((course, index) => (
             <li
               key={course.course_id}
               className="flex items-baseline gap-3 px-3 py-2"
             >
-              <span className="w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+              <span className="w-6 shrink-0 text-right text-xs tabular-nums text-ink-3">
                 {course.position ?? index + 1}.
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{course.course_name}</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate font-medium text-ink">{course.course_name}</p>
+                <p className="flex items-center gap-1 truncate text-xs text-ink-3">
+                  {course.county_name && <MapPin aria-hidden className="size-3" />}
                   {[course.club_name, course.county_name]
                     .filter(Boolean)
                     .join(" · ") || "—"}

@@ -1,10 +1,18 @@
 import Link from "next/link";
+import { ArrowUpRight, Hash, Sparkles, Tag } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { listCoverURL } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 import { NewCuratedListButton } from "./NewCuratedListButton";
-import { STATUS_LABELS, STATUS_VARIANT, statusFor, type CuratedListRow } from "./types";
+import {
+  STATUS_CHIP,
+  STATUS_DOT,
+  STATUS_LABELS,
+  statusFor,
+  type CuratedListRow,
+  type CuratedListStatus,
+} from "./types";
 
 export const dynamic = "force-dynamic";
 
@@ -51,42 +59,98 @@ export default async function CuratedListsPage() {
     course_count: counts[l.id] ?? 0,
   }));
 
+  const buckets = bucketRows(rows);
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-8">
       <SectionHeader
+        eyebrow="Editorial"
         title="Curated lists"
         description="Editorial collections owned by Fairways. Surface what users see in the app — title, bio, cover, tags, courses — and control when each list goes live, gets archived, or sunsets."
+        actions={<NewCuratedListButton />}
       />
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {rows.length} {rows.length === 1 ? "list" : "lists"} total
-        </p>
-        <NewCuratedListButton />
-      </div>
+      {/* Status counters strip — gives a fast read on how the
+          editorial mix is balanced before scrolling the grid. */}
+      {rows.length > 0 && <CuratedSummary buckets={buckets} total={rows.length} />}
 
       {listsErr && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-2xl border border-alert/40 bg-alert/10 p-4 text-sm text-alert">
           Failed to load curated lists: {listsErr.message}
         </div>
       )}
 
-      {!listsErr && rows.length === 0 && (
-        <div className="rounded-lg border border-dashed bg-card/50 p-12 text-center">
-          <p className="text-sm font-medium">No curated lists yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create your first one to start editorial collections.
-          </p>
-        </div>
-      )}
+      {!listsErr && rows.length === 0 && <EmptyState />}
 
       {rows.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {rows.map((row) => (
             <CuratedRowCard key={row.id} row={row} />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-dashed border-border/70 bg-paper-raised/60 p-12 text-center">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-50"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--brand) 12%, transparent) 0%, transparent 60%)",
+        }}
+      />
+      <div className="relative flex flex-col items-center gap-2">
+        <span
+          aria-hidden
+          className="flex size-10 items-center justify-center rounded-full bg-brand/15 text-brand-deep dark:text-brand-soft"
+        >
+          <Sparkles className="size-5" />
+        </span>
+        <p className="font-heading text-base font-semibold text-ink">
+          No curated lists yet
+        </p>
+        <p className="text-sm text-ink-2">
+          Create your first one to start editorial collections.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CuratedSummary({
+  buckets,
+  total,
+}: {
+  buckets: Record<CuratedListStatus, number>;
+  total: number;
+}) {
+  const order: CuratedListStatus[] = [
+    "live",
+    "scheduled",
+    "draft",
+    "expired",
+    "archived",
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="rounded-full border border-border bg-paper-raised px-3 py-1 text-xs font-medium text-ink-2">
+        {total} total
+      </span>
+      {order.map((key) => (
+        <span
+          key={key}
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-paper-raised px-3 py-1 text-xs"
+        >
+          <span aria-hidden className={cn("size-2 rounded-full", STATUS_DOT[key])} />
+          <span className="text-ink-2">{STATUS_LABELS[key]}</span>
+          <span className="font-semibold tabular-nums text-ink">{buckets[key]}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -97,43 +161,71 @@ function CuratedRowCard({ row }: { row: CuratedListRow }) {
   return (
     <Link
       href={`/curated/${row.id}`}
-      className="group flex gap-4 overflow-hidden rounded-xl border bg-card p-3 ring-1 ring-foreground/10 transition-colors hover:bg-accent/40"
+      className="group/card relative flex gap-4 overflow-hidden rounded-2xl border border-border bg-paper-raised p-3 ring-1 ring-foreground/5 transition-all hover:-translate-y-px hover:border-brand/40 hover:shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--brand)_30%,transparent)] hover:ring-brand/15"
     >
+      {/* Status accent stripe. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-0 left-0 w-[3px]",
+          STATUS_DOT[status],
+        )}
+      />
       <CoverThumb url={cover} title={row.name} />
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
-        <div className="space-y-1">
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 py-1 pr-1">
+        <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-2">
-            <h2 className="truncate font-heading text-base leading-snug">{row.name}</h2>
-            <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
+            <h2 className="truncate font-heading text-base font-semibold leading-snug text-ink">
+              {row.name}
+            </h2>
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                STATUS_CHIP[status],
+              )}
+            >
+              {STATUS_LABELS[status]}
+            </span>
           </div>
           {row.description && (
-            <p className="line-clamp-2 text-xs text-muted-foreground">
+            <p className="line-clamp-2 text-xs leading-relaxed text-ink-2">
               {row.description}
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
           {row.tier && (
-            <Badge variant="secondary" className="capitalize">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold uppercase tracking-wider",
+                row.tier === "flagship"
+                  ? "border-brand/40 bg-brand/10 text-brand-deep dark:text-brand-soft"
+                  : "border-border bg-paper-sunken/60 text-ink-2",
+              )}
+            >
               {row.tier}
-            </Badge>
+            </span>
           )}
-          <Badge variant="outline">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-paper-sunken/40 px-2 py-0.5 text-ink-2">
+            <Hash aria-hidden className="size-3" />
             {row.course_count} {row.course_count === 1 ? "course" : "courses"}
-          </Badge>
+          </span>
           {row.tags.slice(0, 3).map((tag) => (
-            // Tags display as bare labels — no `#` prefix.
-            // The stored value never carries one (admin input
-            // strips leading `#` in the editor) and the iOS
-            // app renders the same way, so the dashboard reads
-            // identically to what users see.
-            <Badge key={tag} variant="outline" className="font-normal">
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-paper-sunken/40 px-2 py-0.5 text-ink-3"
+            >
+              <Tag aria-hidden className="size-2.5" />
               {tag}
-            </Badge>
+            </span>
           ))}
           {row.tags.length > 3 && (
-            <span className="text-xs text-muted-foreground">+{row.tags.length - 3}</span>
+            <span className="text-ink-3">+{row.tags.length - 3}</span>
           )}
+          <span className="ml-auto inline-flex items-center gap-1 text-brand-deep opacity-0 transition-opacity group-hover/card:opacity-100 dark:text-brand-soft">
+            Edit
+            <ArrowUpRight aria-hidden className="size-3" />
+          </span>
         </div>
       </div>
     </Link>
@@ -147,13 +239,33 @@ function CoverThumb({ url, title }: { url: string | null; title: string }) {
       <img
         src={url}
         alt={`Cover for ${title}`}
-        className="h-20 w-28 shrink-0 rounded-md bg-muted object-cover"
+        className="h-24 w-32 shrink-0 rounded-xl bg-paper-sunken object-cover ring-1 ring-foreground/5"
       />
     );
   }
   return (
-    <div className="flex h-20 w-28 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div
+      className="flex h-24 w-32 shrink-0 items-center justify-center rounded-xl text-[10px] font-semibold uppercase tracking-wider text-paper-raised/80 ring-1 ring-foreground/5"
+      style={{
+        background:
+          "linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%)",
+      }}
+    >
       No cover
     </div>
   );
+}
+
+function bucketRows(rows: CuratedListRow[]): Record<CuratedListStatus, number> {
+  const out: Record<CuratedListStatus, number> = {
+    draft: 0,
+    scheduled: 0,
+    live: 0,
+    expired: 0,
+    archived: 0,
+  };
+  for (const row of rows) {
+    out[statusFor(row)] += 1;
+  }
+  return out;
 }

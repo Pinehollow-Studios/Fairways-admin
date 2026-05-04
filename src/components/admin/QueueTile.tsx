@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -7,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type Props = {
   href: string;
@@ -17,23 +19,45 @@ type Props = {
 };
 
 export function QueueTile({ href, title, description, count, status }: Props) {
+  const showAttention = status === "live" && (count ?? 0) > 0;
   const body = (
-    <Card className="h-full transition-colors hover:border-foreground/20">
+    <Card
+      className={cn(
+        "h-full transition-all",
+        status === "live" &&
+          "hover:-translate-y-px hover:border-brand/40 hover:ring-brand/20",
+        showAttention && "border-brand/30 ring-brand/15",
+      )}
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">{title}</CardTitle>
           {status === "soon" ? (
-            <Badge variant="secondary">Soon</Badge>
+            <Badge variant="outline">Soon</Badge>
           ) : (
             count !== undefined && (
-              <Badge variant={count > 0 ? "default" : "outline"}>{count}</Badge>
+              <Badge
+                variant={count > 0 ? "default" : "outline"}
+                className={cn(count > 0 && "bg-brand text-brand-fg")}
+              >
+                {count}
+              </Badge>
             )
           )}
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="text-xs text-muted-foreground">
-        {status === "live" ? "Open queue →" : "Wires up when the iOS feature lands."}
+      <CardContent>
+        {status === "live" ? (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-deep dark:text-brand-soft">
+            Open queue
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </span>
+        ) : (
+          <span className="text-xs text-ink-3">
+            Wires up when the iOS feature lands.
+          </span>
+        )}
       </CardContent>
     </Card>
   );

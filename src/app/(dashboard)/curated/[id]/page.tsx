@@ -1,12 +1,14 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, Calendar, Hash } from "lucide-react";
 import { SectionHeader } from "@/components/admin/SectionHeader";
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { listCoverURL } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 import { CuratedEditor } from "./CuratedEditor";
 import {
+  STATUS_CHIP,
   STATUS_LABELS,
-  STATUS_VARIANT,
   statusFor,
   type CuratedCourseRow,
   type CuratedListRow,
@@ -50,7 +52,7 @@ export default async function CuratedListEditorPage(props: { params: RouteParams
   if (listResult.error) {
     return (
       <div className="mx-auto max-w-3xl">
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-2xl border border-alert/40 bg-alert/10 p-4 text-sm text-alert">
           Failed to load list: {listResult.error.message}
         </div>
       </div>
@@ -95,7 +97,16 @@ export default async function CuratedListEditorPage(props: { params: RouteParams
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <Link
+        href="/curated"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-deep hover:text-brand dark:text-brand-soft"
+      >
+        <ArrowLeft aria-hidden className="size-3.5" />
+        All curated lists
+      </Link>
+
       <SectionHeader
+        eyebrow={`Editorial · ${STATUS_LABELS[status].toLowerCase()}`}
         title={row.name}
         description={
           row.bio?.slice(0, 240) ??
@@ -103,17 +114,34 @@ export default async function CuratedListEditorPage(props: { params: RouteParams
           "Editorial curated list — full control of every field below."
         }
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-paper-raised px-4 py-3 text-xs">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            STATUS_CHIP[status],
+          )}
+        >
+          {STATUS_LABELS[status]}
+        </span>
         {row.tier && (
-          <Badge variant="secondary" className="capitalize">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+              row.tier === "flagship"
+                ? "border-brand/40 bg-brand/10 text-brand-deep dark:text-brand-soft"
+                : "border-border bg-paper-sunken/60 text-ink-2",
+            )}
+          >
             {row.tier}
-          </Badge>
+          </span>
         )}
-        <Badge variant="outline">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-paper-sunken/40 px-2 py-0.5 text-ink-2">
+          <Hash aria-hidden className="size-3" />
           {courses.length} {courses.length === 1 ? "course" : "courses"}
-        </Badge>
-        <span className="text-xs text-muted-foreground">
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-ink-3">
+          <Calendar aria-hidden className="size-3" />
           Updated {new Date(row.updated_at).toLocaleString()}
         </span>
       </div>

@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/admin/Sidebar";
 import { TopBar } from "@/components/admin/TopBar";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
   children,
@@ -9,12 +10,29 @@ export default async function DashboardLayout({
 }) {
   const admin = await requireAdmin();
 
+  // Pull lightweight counts in parallel so the sidebar can render
+  // dynamic pip badges next to each live nav item. Failures fall
+  // through silently — the nav item just shows no badge.
+  const supabase = await createClient();
+  const [queueRes, curatedRes] = await Promise.all([
+    supabase.rpc("admin_list_verification_queue"),
+    supabase
+      .from("curated_lists")
+      .select("id", { count: "exact", head: true })
+      .eq("is_archived", false),
+  ]);
+
+  const counts = {
+    verification: Array.isArray(queueRes.data) ? queueRes.data.length : 0,
+    curated: curatedRes.count ?? 0,
+  };
+
   return (
-    <div className="flex min-h-dvh">
-      <Sidebar />
+    <div className="flex min-h-dvh bg-background">
+      <Sidebar counts={counts} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar email={admin.email} />
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
+        <TopBar email={admin.email} role={admin.role} />
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {children}
         </main>
       </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowUpRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Status = "live" | "soon";
@@ -23,18 +23,12 @@ type Props = {
 };
 
 /**
- * Single tile on the dashboard overview. Built to carry as much
- * shape as each section can offer:
+ * Single tile on the dashboard overview.
  *
- *   - `live` cards take a count badge, optional accent pill, and a
- *     `children` slot for a preview list / breakdown bar.
- *   - `soon` cards take a `plannedSurfaces` array describing what
- *     the live version will show, so the dashboard doubles as a
- *     spec for the next batch of work.
- *
- * The whole card is a `Link` for live tiles (any nested clickable
- * elements should stay non-interactive), and a static block for
- * soon tiles so users don't get a dead-end navigation.
+ * Live tiles get a brand-tinted top stripe, an oversized DM Sans
+ * Hero numeral for the count, and the whole card becomes a Link.
+ * Soon tiles get a dashed border, a "Soon" stamp, and a planned-
+ * surfaces list that doubles as a spec for the next slice.
  */
 export function OverviewCard({
   href,
@@ -48,27 +42,41 @@ export function OverviewCard({
   ctaLabel,
 }: Props) {
   const isLive = status === "live";
+  const showAttention = isLive && (count ?? 0) > 0;
 
   const body = (
-    <div
+    <article
       className={cn(
-        "group relative flex h-full flex-col gap-4 rounded-xl border bg-card p-5 ring-1 ring-foreground/10 transition-colors",
+        "group/card relative flex h-full flex-col gap-4 overflow-hidden rounded-2xl border bg-paper-raised p-5 ring-1 ring-foreground/5 transition-all",
         isLive
-          ? "hover:border-foreground/30 hover:bg-accent/40"
-          : "border-dashed bg-card/40",
+          ? "border-border hover:-translate-y-px hover:border-brand/40 hover:shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--brand)_35%,transparent)] hover:ring-brand/20"
+          : "border-dashed border-border/70 bg-paper-raised/55",
+        showAttention && "border-brand/30 ring-brand/15",
       )}
     >
+      {/* Brand top-edge stripe — gives every live tile a colour cue
+          even before the user reads anything. Soon tiles skip it. */}
+      {isLive && (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute inset-x-0 top-0 h-[3px]",
+            showAttention
+              ? "bg-gradient-to-r from-brand-deep via-brand to-brand-soft"
+              : "bg-gradient-to-r from-brand/60 via-brand/30 to-transparent",
+          )}
+        />
+      )}
+
       <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2">
-            <h3 className="font-heading text-base leading-tight">{title}</h3>
-            {!isLive && (
-              <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                Soon
-              </Badge>
-            )}
+            <h3 className="font-heading text-base font-semibold leading-tight text-ink">
+              {title}
+            </h3>
+            {!isLive && <SoonStamp />}
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="text-xs leading-relaxed text-ink-2">
             {description}
           </p>
         </div>
@@ -77,17 +85,17 @@ export function OverviewCard({
             {count !== undefined && (
               <span
                 className={cn(
-                  "tabular-nums",
+                  "font-hero text-3xl leading-none tabular-nums",
                   count > 0
-                    ? "text-2xl font-semibold leading-none"
-                    : "text-2xl font-semibold leading-none text-muted-foreground/60",
+                    ? "text-brand-deep dark:text-brand-soft"
+                    : "text-ink-3/50",
                 )}
               >
                 {count}
               </span>
             )}
             {accent && (
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="text-[10px] uppercase tracking-wider text-ink-3">
                 {accent}
               </span>
             )}
@@ -98,12 +106,12 @@ export function OverviewCard({
       {isLive && children && <div className="flex-1">{children}</div>}
 
       {!isLive && plannedSurfaces && plannedSurfaces.length > 0 && (
-        <ul className="flex-1 space-y-1.5 text-xs text-muted-foreground/90">
+        <ul className="flex-1 space-y-1.5 text-xs text-ink-2">
           {plannedSurfaces.map((surface) => (
             <li key={surface} className="flex items-start gap-2">
               <span
                 aria-hidden
-                className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50"
+                className="mt-[7px] inline-block size-1 shrink-0 rounded-full bg-brand/50"
               />
               <span className="leading-snug">{surface}</span>
             </li>
@@ -111,23 +119,29 @@ export function OverviewCard({
         </ul>
       )}
 
-      <footer className="flex items-center justify-between border-t pt-3 text-xs">
-        <span
-          className={cn(
-            isLive
-              ? "font-medium text-foreground"
-              : "text-muted-foreground/70",
-          )}
-        >
-          {ctaLabel ?? (isLive ? "Open →" : "Wires up when the iOS feature lands")}
-        </span>
+      <footer className="flex items-center justify-between border-t border-border/60 pt-3 text-xs">
+        {isLive ? (
+          <span className="inline-flex items-center gap-1 font-semibold text-brand-deep dark:text-brand-soft">
+            {ctaLabel ?? "Open"}
+            <ArrowUpRight
+              aria-hidden
+              className="size-3.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5"
+            />
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-ink-3">
+            <Clock aria-hidden className="size-3" />
+            {ctaLabel ?? "Wires up when the iOS feature lands"}
+          </span>
+        )}
         {isLive && (
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-brand-deep dark:text-brand-soft">
+            <span aria-hidden className="size-1.5 rounded-full bg-brand" />
             Live
           </span>
         )}
       </footer>
-    </div>
+    </article>
   );
 
   if (!isLive) return body;
@@ -135,6 +149,14 @@ export function OverviewCard({
     <Link href={href} className="block h-full">
       {body}
     </Link>
+  );
+}
+
+function SoonStamp() {
+  return (
+    <span className="rounded-full border border-border bg-paper-sunken/70 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+      Soon
+    </span>
   );
 }
 
@@ -157,28 +179,28 @@ export function PreviewList({
 }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-md border border-dashed bg-background/40 p-3 text-center text-xs text-muted-foreground">
+      <p className="rounded-lg border border-dashed border-border/70 bg-paper-sunken/50 px-3 py-4 text-center text-xs text-ink-3">
         {emptyLabel}
       </p>
     );
   }
   return (
-    <ul className="space-y-1.5">
+    <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-paper-sunken/40">
       {items.map((item) => (
         <li
           key={item.key}
-          className="flex items-baseline gap-2 rounded-md bg-background/40 px-2.5 py-1.5 text-xs"
+          className="flex items-baseline gap-2 px-3 py-2 text-xs transition-colors hover:bg-paper-raised/60"
         >
-          <span className="min-w-0 flex-1 truncate font-medium">
+          <span className="min-w-0 flex-1 truncate font-medium text-ink">
             {item.primary}
           </span>
           {item.secondary && (
-            <span className="hidden truncate text-muted-foreground sm:inline">
+            <span className="hidden truncate text-ink-3 sm:inline">
               {item.secondary}
             </span>
           )}
           {item.trailing && (
-            <span className="shrink-0 tabular-nums text-muted-foreground/80">
+            <span className="shrink-0 tabular-nums text-ink-3">
               {item.trailing}
             </span>
           )}
@@ -196,25 +218,30 @@ export function PreviewList({
 export function StatusBreakdown({
   segments,
 }: {
-  segments: Array<{ key: string; label: string; count: number; tone: "live" | "draft" | "scheduled" | "expired" | "archived" }>;
+  segments: Array<{
+    key: string;
+    label: string;
+    count: number;
+    tone: "live" | "draft" | "scheduled" | "expired" | "archived";
+  }>;
 }) {
   const total = segments.reduce((sum, seg) => sum + seg.count, 0);
   const toneClass: Record<typeof segments[number]["tone"], string> = {
-    live: "bg-emerald-500/80",
-    draft: "bg-muted-foreground/40",
-    scheduled: "bg-sky-500/80",
-    expired: "bg-destructive/70",
-    archived: "bg-muted-foreground/25",
+    live: "bg-brand",
+    scheduled: "bg-info",
+    draft: "bg-ink-3/55",
+    expired: "bg-alert",
+    archived: "bg-ink-3/35",
   };
   return (
-    <div className="space-y-2">
-      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+    <div className="space-y-2.5">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-paper-sunken ring-1 ring-inset ring-border/60">
         {total > 0 ? (
           segments.map((seg) =>
             seg.count === 0 ? null : (
               <div
                 key={seg.key}
-                className={toneClass[seg.tone]}
+                className={cn(toneClass[seg.tone], "transition-all")}
                 style={{ width: `${(seg.count / total) * 100}%` }}
                 aria-label={`${seg.label}: ${seg.count}`}
               />
@@ -225,14 +252,14 @@ export function StatusBreakdown({
       <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
         {segments.map((seg) => (
           <li key={seg.key} className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-ink-2">
               <span
                 aria-hidden
-                className={cn("h-2 w-2 shrink-0 rounded-full", toneClass[seg.tone])}
+                className={cn("size-2 shrink-0 rounded-full", toneClass[seg.tone])}
               />
               {seg.label}
             </span>
-            <span className="tabular-nums">{seg.count}</span>
+            <span className="font-medium tabular-nums text-ink">{seg.count}</span>
           </li>
         ))}
       </ul>

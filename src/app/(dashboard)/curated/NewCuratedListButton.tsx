@@ -34,8 +34,12 @@ export function NewCuratedListButton() {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} size="sm">
-        New curated list
+      <Button
+        onClick={() => setOpen(true)}
+        size="sm"
+        className="bg-brand text-brand-fg hover:bg-brand-deep"
+      >
+        + New curated list
       </Button>
     );
   }
@@ -57,7 +61,12 @@ export function NewCuratedListButton() {
         className="h-9 w-64"
         disabled={pending}
       />
-      <Button onClick={submit} size="sm" disabled={pending || !name.trim()}>
+      <Button
+        onClick={submit}
+        size="sm"
+        disabled={pending || !name.trim()}
+        className="bg-brand text-brand-fg hover:bg-brand-deep"
+      >
         {pending ? "Creating…" : "Create"}
       </Button>
       <Button

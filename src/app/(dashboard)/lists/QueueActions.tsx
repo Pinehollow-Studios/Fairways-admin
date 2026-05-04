@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { approveList, rejectList } from "./actions";
@@ -31,10 +32,18 @@ export function QueueActions({ listId, listName }: Props) {
         variant="outline"
         disabled={pending}
         onClick={() => run("reject")}
+        className="border-alert/30 text-alert hover:bg-alert/10 hover:text-alert"
       >
+        <X className="size-3.5" />
         Reject
       </Button>
-      <Button size="sm" disabled={pending} onClick={() => run("approve")}>
+      <Button
+        size="sm"
+        disabled={pending}
+        onClick={() => run("approve")}
+        className="bg-brand text-brand-fg hover:bg-brand-deep"
+      >
+        <Check className="size-3.5" />
         Approve
       </Button>
     </div>
