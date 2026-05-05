@@ -29,6 +29,15 @@ type CuratedRow = {
   updated_at: string;
 };
 
+type FeedbackPreviewRow = {
+  id: string;
+  kind: "bug" | "dataError" | "featureRequest" | "general";
+  status: "new" | "triaged" | "inProgress" | "resolved" | "wontFix";
+  severity: "low" | "medium" | "high" | "critical" | null;
+  body: string;
+  created_at: string;
+};
+
 export default async function OverviewPage() {
   const supabase = await createClient();
   const admin = await requireAdmin();
@@ -36,16 +45,24 @@ export default async function OverviewPage() {
   // Fetch real data for the two live sections in parallel. Each
   // result is independently nullable — if either query 500s the
   // dashboard still renders, the affected card just shows `—`.
-  const [queueRes, curatedRes] = await Promise.all([
+  const [queueRes, curatedRes, feedbackRes] = await Promise.all([
     supabase.rpc("admin_list_verification_queue"),
     supabase
       .from("curated_lists")
       .select("id,name,published_at,unpublished_at,is_archived,updated_at")
       .order("updated_at", { ascending: false }),
+    supabase
+      .from("feedback_reports")
+      .select("id, kind, status, severity, body, created_at")
+      .in("status", ["new", "triaged", "inProgress"])
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
 
   const queue: ListQueueRow[] = (queueRes.data as ListQueueRow[] | null) ?? [];
   const curated: CuratedRow[] = (curatedRes.data as CuratedRow[] | null) ?? [];
+  const openFeedback: FeedbackPreviewRow[] =
+    (feedbackRes.data as FeedbackPreviewRow[] | null) ?? [];
 
   const curatedByStatus = bucketCurated(curated);
   const curatedLiveCount = curatedByStatus.live;
@@ -82,8 +99,14 @@ export default async function OverviewPage() {
     {
       key: "feedback",
       label: "Open feedback",
-      value: null,
-      hint: "Wires up with iOS slice",
+      value: openFeedback.length,
+      hint:
+        openFeedback.length === 0
+          ? "Inbox clear"
+          : openFeedback.length === 1
+            ? "1 open report"
+            : `${openFeedback.length} open reports`,
+      tone: openFeedback.length > 0 ? "attention" : "muted",
     },
   ];
 
@@ -158,15 +181,28 @@ export default async function OverviewPage() {
           <OverviewCard
             href="/feedback"
             title="Feedback triage"
-            description="In-app feedback and bug reports awaiting acknowledgement."
-            status="soon"
-            plannedSurfaces={[
-              "Inbox of open reports by severity",
-              "Linked user, build, device, and screen",
-              "Tag, assign, and reply inline",
-              "Auto-close on app version bump",
-            ]}
-          />
+            description="In-app feedback and bug reports awaiting acknowledgement. Reply, change status, tag, or block reporters."
+            status="live"
+            count={openFeedback.length}
+            accent={openFeedback.length === 0 ? "Inbox clear" : "open"}
+            ctaLabel={
+              openFeedback.length === 0
+                ? "Open inbox"
+                : `Triage ${openFeedback.length}`
+            }
+          >
+            <PreviewList
+              items={openFeedback.slice(0, 4).map((row) => ({
+                key: row.id,
+                primary: previewSentence(row.body),
+                secondary: `${feedbackKindLabel(row.kind)} · ${feedbackStatusLabel(row.status)}${
+                  row.severity ? ` · ${row.severity}` : ""
+                }`,
+                trailing: relativeTime(row.created_at),
+              }))}
+              emptyLabel="No open feedback reports."
+            />
+          </OverviewCard>
         </div>
       </section>
 
@@ -456,4 +492,38 @@ function relativeTime(iso: string): string {
   if (diffDays < 30) return `${diffDays}d`;
   const diffMonths = Math.round(diffDays / 30);
   return `${diffMonths}mo`;
+}
+
+function feedbackKindLabel(kind: FeedbackPreviewRow["kind"]): string {
+  switch (kind) {
+    case "bug":
+      return "Bug";
+    case "dataError":
+      return "Data error";
+    case "featureRequest":
+      return "Feature request";
+    case "general":
+      return "General";
+  }
+}
+
+function feedbackStatusLabel(status: FeedbackPreviewRow["status"]): string {
+  switch (status) {
+    case "new":
+      return "New";
+    case "triaged":
+      return "Acknowledged";
+    case "inProgress":
+      return "In progress";
+    case "resolved":
+      return "Resolved";
+    case "wontFix":
+      return "Won't fix";
+  }
+}
+
+function previewSentence(body: string): string {
+  const trimmed = body.trim();
+  if (trimmed.length <= 90) return trimmed;
+  return trimmed.slice(0, 87) + "…";
 }
