@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   ChevronRight,
   Crown,
@@ -12,6 +13,7 @@ import { SectionHeader } from "@/components/admin/SectionHeader";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { avatarURL } from "@/lib/storage";
+import { getCrashForFeedback } from "@/lib/crashes/queries";
 import { feedbackScreenshotSignedURLs } from "@/lib/feedback/signedUrl";
 import { Screenshots } from "./Screenshots";
 import { ReplyForm } from "./ReplyForm";
@@ -97,6 +99,14 @@ export default async function FeedbackThreadPage({
     screenshots.map((s) => s.storage_path),
   );
 
+  // Resolve the linked crash row, if the iOS form captured one via
+  // SentrySDK.lastEventId at submit time (CLAUDE.md §13.4). Returns
+  // null when the report has no link OR when the Sentry webhook
+  // hasn't ingested the matching crash row yet.
+  const linkedCrash = report.linked_crash_id
+    ? await getCrashForFeedback(report.id)
+    : null;
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <BackLink />
@@ -126,6 +136,12 @@ export default async function FeedbackThreadPage({
             isSuperAdmin={admin.role === "super_admin"}
           />
           <SidebarMeta report={report} />
+          {report.linked_crash_id && (
+            <LinkedCrashCard
+              crashRowId={linkedCrash?.id ?? null}
+              sentryEventId={report.linked_crash_id}
+            />
+          )}
           {duplicates.length > 0 && <DuplicatesPanel duplicates={duplicates} />}
         </aside>
       </div>
@@ -459,6 +475,62 @@ function DuplicatesPanel({
 
 function statusBadgeClass(status: FeedbackStatus): string {
   return statusChipClasses(status);
+}
+
+// --------------------------------------------------------------
+// Linked crash card
+// --------------------------------------------------------------
+
+/**
+ * Surfaces the Sentry crash that prompted this feedback report
+ * (CLAUDE.md §13.4). The link is captured at iOS-form-submit time
+ * via `SentrySDK.lastEventId()`. Two states:
+ *   - resolved: row exists in `crash_reports`, render a clickable
+ *     card linking to `/crashes/[id]`.
+ *   - pending: feedback row has `linked_crash_id` set but the
+ *     Sentry webhook hasn't ingested the crash yet (race; user
+ *     submits feedback faster than Sentry retries the webhook).
+ *     Render the event UUID with a "pending" hint so the operator
+ *     knows the link will become live.
+ */
+function LinkedCrashCard({
+  crashRowId,
+  sentryEventId,
+}: {
+  crashRowId: string | null;
+  sentryEventId: string;
+}) {
+  if (crashRowId) {
+    return (
+      <Link
+        href={`/crashes/${crashRowId}`}
+        className="block space-y-2 rounded-2xl border border-alert/40 bg-alert/5 p-4 ring-1 ring-foreground/5 transition-colors hover:border-alert/60"
+      >
+        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-alert">
+          <AlertTriangle aria-hidden className="size-3" />
+          Linked crash
+        </p>
+        <p className="text-xs text-ink-2">
+          This report was filed while a Sentry event was in scope. Open the
+          crash for stack trace + breadcrumbs.
+        </p>
+        <p className="font-mono text-[10px] text-ink-3">{sentryEventId}</p>
+      </Link>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded-2xl border border-dashed border-border/70 bg-paper-sunken/40 p-4 text-xs text-ink-3 ring-1 ring-foreground/5">
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+        <AlertTriangle aria-hidden className="size-3" />
+        Linked crash · pending
+      </p>
+      <p>
+        The user submitted this report with a Sentry event in scope, but the
+        webhook hasn&apos;t ingested it yet. Refresh in a few seconds.
+      </p>
+      <p className="font-mono text-[10px] text-ink-3">{sentryEventId}</p>
+    </div>
+  );
 }
 
 // --------------------------------------------------------------

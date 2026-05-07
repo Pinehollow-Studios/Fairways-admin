@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertTriangle,
   BarChart3,
   ClipboardCheck,
   Images,
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { href: "/scorecards", label: "Scorecards", group: "queues", ready: false, icon: ClipboardCheck },
   { href: "/photos", label: "Photo moderation", group: "queues", ready: false, icon: Images },
   { href: "/feedback", label: "Feedback triage", group: "queues", ready: true, icon: MessageSquareWarning, countKey: "feedback" },
+  { href: "/crashes", label: "Crashes", group: "queues", ready: true, icon: AlertTriangle, countKey: "crashes" },
   { href: "/curated", label: "Curated lists", group: "editorial", ready: true, icon: Sparkles, countKey: "curated" },
   { href: "/courses", label: "Courses", group: "editorial", ready: true, icon: MapPin, countKey: "courses" },
   { href: "/analytics", label: "Analytics", group: "insights", ready: false, icon: BarChart3 },
