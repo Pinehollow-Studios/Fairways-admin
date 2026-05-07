@@ -71,8 +71,34 @@ export type SentryEventDetail = {
 };
 
 /**
+ * Three distinct failure modes the detail page should render
+ * differently:
+ *
+ *   - `not_configured` — the SENTRY_AUTH_TOKEN / SENTRY_ORG_SLUG /
+ *     SENTRY_PROJECT_SLUG triple isn't all set on the deploy. The
+ *     queue itself works (Supabase reads); only the inline stack
+ *     trace section needs the API.
+ *
+ *   - `not_found` — the API call succeeded with a 404. Sentry
+ *     genuinely doesn't have this event id. Common cases: the
+ *     webhook landed an event id Sentry hasn't propagated yet
+ *     (race; refresh fixes), the event was deleted server-side,
+ *     or this is a synthetic test row inserted via curl that
+ *     never went through Sentry at all.
+ *
+ *   - `unreachable` — network failure, 5xx, malformed response,
+ *     auth failure. Distinct from 404 because the recovery is
+ *     different (retry later vs accept it's not coming).
+ */
+export type SentryEventResult =
+  | { ok: true; event: SentryEventDetail }
+  | { ok: false; reason: "not_configured" | "not_found" | "unreachable" };
+
+/**
  * Fetch full event detail (stack trace, breadcrumbs, device,
- * contexts) from Sentry. Returns `null` on any failure.
+ * contexts) from Sentry. Returns a discriminated result so the
+ * detail page can render the right inline message for each
+ * failure mode.
  *
  * Cached for 60s via Next.js `fetch` cache headers — admin browsing
  * the same crash twice in a minute hits cache instead of Sentry's
@@ -80,13 +106,13 @@ export type SentryEventDetail = {
  */
 export async function fetchSentryEvent(
   eventId: string,
-): Promise<SentryEventDetail | null> {
+): Promise<SentryEventResult> {
   const env = readEnv();
-  if (!env) return null;
+  if (!env) return { ok: false, reason: "not_configured" };
   // Sentry's event-detail endpoint accepts the dashless 32-char
   // event ID. Strip any dashes the caller might have introduced.
   const normalised = eventId.replace(/-/g, "").toLowerCase();
-  if (normalised.length !== 32) return null;
+  if (normalised.length !== 32) return { ok: false, reason: "not_found" };
 
   const url = `${SENTRY_API_BASE}/projects/${env.org}/${env.project}/events/${normalised}/`;
   let response: Response;
@@ -96,34 +122,43 @@ export async function fetchSentryEvent(
       next: { revalidate: 60 },
     });
   } catch {
-    return null;
+    return { ok: false, reason: "unreachable" };
   }
-  if (!response.ok) return null;
+  if (response.status === 404) return { ok: false, reason: "not_found" };
+  if (!response.ok) return { ok: false, reason: "unreachable" };
   let raw: unknown;
   try {
     raw = await response.json();
   } catch {
-    return null;
+    return { ok: false, reason: "unreachable" };
   }
   const obj = raw as Record<string, unknown>;
   return {
-    eventID: String(obj.eventID ?? eventId),
-    message: typeof obj.message === "string" ? obj.message : null,
-    release: typeof obj.release === "string" ? obj.release : null,
-    environment: typeof obj.environment === "string" ? obj.environment : null,
-    platform: typeof obj.platform === "string" ? obj.platform : null,
-    dateCreated: typeof obj.dateCreated === "string" ? obj.dateCreated : null,
-    tags: Array.isArray(obj.tags)
-      ? (obj.tags as Array<{ key?: unknown; value?: unknown }>)
-          .filter((t) => typeof t.key === "string" && typeof t.value === "string")
-          .map((t) => ({ key: t.key as string, value: t.value as string }))
-      : [],
-    entries: Array.isArray(obj.entries)
-      ? (obj.entries as Array<{ type?: unknown; data?: unknown }>)
-          .filter((e) => typeof e.type === "string")
-          .map((e) => ({ type: e.type as string, data: e.data ?? null }))
-      : [],
-    contexts: (obj.contexts as Record<string, unknown> | null) ?? null,
-    user: (obj.user as SentryEventDetail["user"]) ?? null,
+    ok: true,
+    event: {
+      eventID: String(obj.eventID ?? eventId),
+      message: typeof obj.message === "string" ? obj.message : null,
+      release: typeof obj.release === "string" ? obj.release : null,
+      environment:
+        typeof obj.environment === "string" ? obj.environment : null,
+      platform: typeof obj.platform === "string" ? obj.platform : null,
+      dateCreated:
+        typeof obj.dateCreated === "string" ? obj.dateCreated : null,
+      tags: Array.isArray(obj.tags)
+        ? (obj.tags as Array<{ key?: unknown; value?: unknown }>)
+            .filter(
+              (t) =>
+                typeof t.key === "string" && typeof t.value === "string",
+            )
+            .map((t) => ({ key: t.key as string, value: t.value as string }))
+        : [],
+      entries: Array.isArray(obj.entries)
+        ? (obj.entries as Array<{ type?: unknown; data?: unknown }>)
+            .filter((e) => typeof e.type === "string")
+            .map((e) => ({ type: e.type as string, data: e.data ?? null }))
+        : [],
+      contexts: (obj.contexts as Record<string, unknown> | null) ?? null,
+      user: (obj.user as SentryEventDetail["user"]) ?? null,
+    },
   };
 }

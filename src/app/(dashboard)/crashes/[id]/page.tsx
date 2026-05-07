@@ -24,7 +24,6 @@ import {
 import {
   fetchSentryEvent,
   getSentryIssueURL,
-  isSentryConfigured,
   type SentryEventDetail,
 } from "@/lib/sentry/client";
 
@@ -247,28 +246,43 @@ function MetaRow({
 // --------------------------------------------------------------
 
 async function SentryDetailSection({ eventId }: { eventId: string }) {
-  if (!isSentryConfigured()) {
-    return (
-      <article className="rounded-2xl border border-dashed border-border/70 bg-paper-sunken/40 p-5 text-sm text-ink-3">
-        Sentry API isn&apos;t configured for this dashboard. Set{" "}
-        <code className="font-mono text-[11px]">SENTRY_AUTH_TOKEN</code>,{" "}
-        <code className="font-mono text-[11px]">SENTRY_ORG_SLUG</code>, and{" "}
-        <code className="font-mono text-[11px]">SENTRY_PROJECT_SLUG</code> in
-        <code className="font-mono text-[11px]"> .env.local</code> (see{" "}
-        <code className="font-mono text-[11px]">docs/sentry-setup.md</code>) to
-        load stack traces + breadcrumbs inline.
-      </article>
-    );
-  }
+  const result = await fetchSentryEvent(eventId);
 
-  const event = await fetchSentryEvent(eventId);
-  if (!event) {
+  if (!result.ok) {
+    if (result.reason === "not_configured") {
+      return (
+        <article className="rounded-2xl border border-dashed border-border/70 bg-paper-sunken/40 p-5 text-sm text-ink-3">
+          Sentry API isn&apos;t configured for this dashboard. Set{" "}
+          <code className="font-mono text-[11px]">SENTRY_AUTH_TOKEN</code>,{" "}
+          <code className="font-mono text-[11px]">SENTRY_ORG_SLUG</code>, and{" "}
+          <code className="font-mono text-[11px]">SENTRY_PROJECT_SLUG</code> in
+          <code className="font-mono text-[11px]"> .env.local</code> (see{" "}
+          <code className="font-mono text-[11px]">docs/sentry-setup.md</code>)
+          to load stack traces + breadcrumbs inline.
+        </article>
+      );
+    }
+    if (result.reason === "not_found") {
+      // Most common cases: webhook delivered an event id Sentry hasn't
+      // propagated yet (race; refresh fixes), event was deleted server-
+      // side, or the row is a synthetic test inserted via curl that
+      // never went through Sentry at all.
+      return (
+        <article className="rounded-2xl border border-dashed border-border/70 bg-paper-sunken/40 p-5 text-sm text-ink-3">
+          This event isn&apos;t in Sentry. New events take a few seconds to
+          propagate after the webhook fires — refresh in a moment. If this
+          row was inserted by the smoke-test script (or any other path that
+          bypassed the iOS SDK), the event will never appear in Sentry; the
+          local row above is the only record.
+        </article>
+      );
+    }
     return (
       <article className="rounded-2xl border border-dashed border-border/70 bg-paper-sunken/40 p-5 text-sm text-ink-3">
         Couldn&apos;t reach Sentry to load stack trace + breadcrumbs. The
-        local crash row above is the canonical record we have until Sentry is
-        reachable again. Use the &quot;Open in Sentry&quot; button to view in
-        Sentry directly.
+        local crash row above is the canonical record we have until Sentry
+        is reachable again. Use the &quot;Open in Sentry&quot; button to view
+        in Sentry directly.
       </article>
     );
   }
@@ -281,8 +295,8 @@ async function SentryDetailSection({ eventId }: { eventId: string }) {
         </p>
         <p className="text-[11px] text-ink-3">cached 60s</p>
       </header>
-      <SentryEntries entries={event.entries} />
-      <SentryTags tags={event.tags} />
+      <SentryEntries entries={result.event.entries} />
+      <SentryTags tags={result.event.tags} />
     </article>
   );
 }
