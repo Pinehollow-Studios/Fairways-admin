@@ -35,20 +35,23 @@ function readEnv() {
   return { token, org, project };
 }
 
-/** Whether the Sentry client is configured at all. The detail page
- *  uses this to render an inline "Sentry not configured" hint
- *  instead of trying (and failing) to fetch. */
+/** Whether the Sentry client is configured for API reads (stack
+ *  traces + breadcrumbs). The detail page uses this to render an
+ *  inline "Sentry not configured" hint instead of trying (and
+ *  failing) to fetch. */
 export function isSentryConfigured(): boolean {
   return readEnv() !== null;
 }
 
-/** Build the canonical Sentry Issue URL — opens in a new tab from
- *  the "Open in Sentry" button on the detail page. Does not require
- *  the API token; safe to call from anywhere. */
+/** Build the canonical Sentry Issue URL. Public URL — only needs
+ *  the org slug (not the auth token), so the "Open in Sentry"
+ *  deep-link works as soon as `SENTRY_ORG_SLUG` is configured,
+ *  even if the API token isn't set yet. Returns null when org
+ *  slug is missing. */
 export function getSentryIssueURL(issueId: string): string | null {
-  const env = readEnv();
-  if (!env) return null;
-  return `https://sentry.io/organizations/${env.org}/issues/${issueId}/`;
+  const org = process.env.SENTRY_ORG_SLUG;
+  if (!org) return null;
+  return `https://sentry.io/organizations/${org}/issues/${issueId}/`;
 }
 
 export type SentryEventDetail = {

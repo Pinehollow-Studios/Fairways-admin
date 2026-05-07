@@ -482,11 +482,15 @@ function LinkedFeedbackSection({ rows }: { rows: CrashLinkedFeedback[] }) {
 // --------------------------------------------------------------
 
 function formatAbsolute(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    month: "short",
+  // Locked en-GB per CLAUDE.md §3.6 — admin dashboard mirrors the
+  // iOS app's "regionless en, UK style by default" posture rather
+  // than picking up the runtime's default (Vercel runs en-US).
+  return new Date(iso).toLocaleString("en-GB", {
     day: "numeric",
+    month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }

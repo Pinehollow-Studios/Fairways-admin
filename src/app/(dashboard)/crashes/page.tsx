@@ -393,9 +393,11 @@ function formatRelative(iso: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.round(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, {
-    month: "short",
+  // Locked en-GB per CLAUDE.md §3.6 (UK-style date), matches the
+  // detail page's formatAbsolute().
+  return date.toLocaleDateString("en-GB", {
     day: "numeric",
+    month: "short",
     year: diffDays > 365 ? "numeric" : undefined,
   });
 }
